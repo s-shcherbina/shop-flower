@@ -1,9 +1,19 @@
-import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthResponse } from 'src/types';
 import { CreateSuperUserDTO, CreateUserDTO } from 'src/modules/users/dto';
 import { AuthService } from './auth.service';
 import { LoginSuperUserDTO, LoginUserDTO } from './dto';
+import { UserId } from 'src/decorators/userId.decorators';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -22,12 +32,14 @@ export class AuthController {
     return userData;
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('register_su')
   async registerPrivelegUser(
     @Body() dto: CreateSuperUserDTO,
     @Res({ passthrough: true }) res: Response,
+    @UserId() id: number,
   ): Promise<AuthResponse> {
-    const userData = await this.authService.registerPrivelegUser(dto);
+    const userData = await this.authService.registerPrivelegUser(id, dto);
     res.cookie('refreshToken', userData.refreshToken, {
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,

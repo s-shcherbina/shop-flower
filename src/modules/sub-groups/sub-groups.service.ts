@@ -1,13 +1,9 @@
-import {
-  BadRequestException,
-  forwardRef,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { GroupsService } from '../groups/groups.service';
-import { ImagesService } from '../images/images.service';
+import { GoodEntity } from '../goods/entities/good.entity';
+import { GoodsService } from '../goods/goods.service';
+import { GroupEntity } from '../groups/entities/group.entity';
 import { CreateSubGroupDTO } from './dto';
 import { SubGroupEntity } from './entities/sub-group.entity';
 
@@ -16,9 +12,9 @@ export class SubGroupsService {
   constructor(
     @InjectRepository(SubGroupEntity)
     private readonly subGroupRepository: Repository<SubGroupEntity>,
-    private readonly groupsService: GroupsService,
-    @Inject(forwardRef(() => ImagesService))
-    private readonly imagesService: ImagesService,
+    @InjectRepository(GroupEntity)
+    private readonly groupRepository: Repository<GroupEntity>,
+    private readonly goodsService: GoodsService,
   ) {}
 
   async createSubGroup(dto: CreateSubGroupDTO) {
@@ -27,7 +23,7 @@ export class SubGroupsService {
     });
     if (existSubGroup) throw new BadRequestException('Така підгрупа вже існує');
 
-    const group = await this.groupsService.getGroup(dto.groupId);
+    const group = await this.groupRepository.findOneBy({ id: dto.groupId });
     if (!group)
       throw new BadRequestException('Немає групи для створення підгрупи');
 
@@ -35,10 +31,6 @@ export class SubGroupsService {
       name: dto.name,
       group,
     });
-    // const subGroup = await this.subGroupRepository.findOneBy({
-    //   name: dto.name,
-    // });
-    // return subGroup - Promise<SubGroupEntity>
   }
 
   async getSubGroups(groupId: number): Promise<SubGroupEntity[]> {
@@ -48,11 +40,6 @@ export class SubGroupsService {
       .where('subGroups.groupId = :id', { id: groupId })
       .leftJoinAndSelect('subGroups.group', 'group')
       .getMany();
-    // const group = await this.groupsService.getGroup(groupId);
-    // const subGroups = await this.subGroupRepository.find({
-    //   where: { group },
-    //   relations: { group: true },
-    // }); - working!!
     return subGroups;
   }
 
@@ -61,8 +48,21 @@ export class SubGroupsService {
   }
 
   async removeSubGroup(id: number): Promise<string> {
-    await this.imagesService.removeImgFilesOfSubGroup(id);
+    await this.removeImgsSubGroup(id);
     await this.subGroupRepository.delete({ id });
     return 'Видалено';
+  }
+
+  async removeImgsSubGroup(subGroupId: number) {
+    const goods = await this.goodsService.getGoods(subGroupId);
+    if (!goods) throw new BadRequestException('Немає товарів у підгрупі');
+
+    await this.removeImgFilesOfSubGroup(goods);
+  }
+
+  async removeImgFilesOfSubGroup(goods: GoodEntity[]) {
+    for (const good of goods) {
+      await this.goodsService.removeImgsGood(good.id);
+    }
   }
 }

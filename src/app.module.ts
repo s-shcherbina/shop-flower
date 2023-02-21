@@ -14,7 +14,7 @@ import { OrderGoodsModule } from './modules/order-goods/order-goods.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-// import * as path from 'path';
+import { GalleryModule } from './modules/gallery/gallery.module';
 
 @Module({
   imports: [
@@ -31,7 +31,6 @@ import { join } from 'path';
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
-      // rootPath: path.resolve(__dirname, 'static'),
     }),
     UsersModule,
     TokensModule,
@@ -42,6 +41,7 @@ import { join } from 'path';
     OrdersModule,
     OrderGoodsModule,
     ImagesModule,
+    GalleryModule,
   ],
 })
 export class AppModule {}

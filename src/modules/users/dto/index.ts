@@ -40,11 +40,15 @@ export class CreateSuperUserDTO {
   @IsString()
   @IsNotEmpty()
   @MinLength(4)
-  @MaxLength(16)
+  @MaxLength(20)
   password: string;
 
-  @IsNumber()
-  userId: number;
-
   invite?: string;
+}
+
+export class UpdateSuperUserDTO extends CreateUserDTO {
+  @IsString()
+  @IsNotEmpty()
+  @IsEmail()
+  email: string;
 }

@@ -1,13 +1,8 @@
-import {
-  BadRequestException,
-  forwardRef,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ImagesService } from '../images/images.service';
-import { SubGroupsService } from '../sub-groups/sub-groups.service';
+import { SubGroupEntity } from '../sub-groups/entities/sub-group.entity';
 import { CreateGoodDTO } from './dto';
 import { GoodEntity } from './entities/good.entity';
 
@@ -16,10 +11,9 @@ export class GoodsService {
   constructor(
     @InjectRepository(GoodEntity)
     private readonly goodRepository: Repository<GoodEntity>,
-    @Inject(forwardRef(() => ImagesService))
+    @InjectRepository(SubGroupEntity)
+    private readonly subGroupRepository: Repository<SubGroupEntity>,
     private readonly imagesService: ImagesService,
-    @Inject(forwardRef(() => SubGroupsService))
-    private readonly subGroupsService: SubGroupsService,
   ) {}
 
   async createGood(dto: CreateGoodDTO): Promise<void> {
@@ -28,7 +22,9 @@ export class GoodsService {
     });
     if (existGood) throw new BadRequestException('Такий товар вже існує');
 
-    const subGroup = await this.subGroupsService.getSubGroup(dto.subGroupId);
+    const subGroup = await this.subGroupRepository.findOneBy({
+      id: dto.subGroupId,
+    });
     if (!subGroup)
       throw new BadRequestException('Немає підгрупи для створення товару');
 
@@ -52,8 +48,15 @@ export class GoodsService {
   }
 
   async removeGood(id: number): Promise<string> {
-    await this.imagesService.removeImgFilesOfGood(id);
+    await this.removeImgsGood(id);
     await this.goodRepository.delete({ id });
     return 'Видалено';
+  }
+
+  async removeImgsGood(goodId: number) {
+    const images = await this.imagesService.getImages(goodId);
+    if (!images) throw new BadRequestException('Немає фото у цього товару');
+
+    images.forEach((image) => this.imagesService.removeImgFile(image.name));
   }
 }

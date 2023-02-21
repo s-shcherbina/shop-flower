@@ -1,7 +1,6 @@
 export interface PayloadToken {
   id: number;
   role: string;
-  phone: string;
 }
 
 export interface AuthResponse {
@@ -14,4 +13,14 @@ export enum Role {
   User = 'USER',
   Admin = 'ADMIN',
   SuperUser = 'SUPER_USER',
+}
+
+export interface QueryOrderParams {
+  userId: number;
+  completed: boolean;
+}
+
+export interface QueryOrderGoodParams {
+  goodId: number;
+  orderId: number;
 }

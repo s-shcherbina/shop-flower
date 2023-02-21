@@ -1,11 +1,9 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
   Param,
   Post,
-  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -17,13 +15,12 @@ import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { Role } from 'src/types';
 import { editFileName, imageFileFilter } from 'src/utils/file-upload.utils';
-import { createImageDTO } from './dto';
-import { ImageEntity } from './entities/image.entity';
-import { ImagesService } from './images.service';
+import { GalleryEntity } from './entities/gallery.entity';
+import { GalleryService } from './gallery.service';
 
-@Controller('images')
-export class ImagesController {
-  constructor(private readonly imagesService: ImagesService) {}
+@Controller('gallery')
+export class GalleryController {
+  constructor(private readonly galleryService: GalleryService) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.Admin)
@@ -37,27 +34,24 @@ export class ImagesController {
       fileFilter: imageFileFilter,
     }),
   )
-  uploadImages(
-    @Body() dto: createImageDTO,
-    @UploadedFiles() files: Express.Multer.File[],
-  ) {
-    return this.imagesService.uploadImages(dto, files);
+  uploadImages(@UploadedFiles() files: Express.Multer.File[]) {
+    return this.galleryService.uploadImages(files);
   }
 
   @Get()
-  getImages(@Query('goodId') goodId: number): Promise<ImageEntity[]> {
-    return this.imagesService.getImages(goodId);
+  getImages(): Promise<GalleryEntity[]> {
+    return this.galleryService.getImages();
   }
 
   @Get(':id')
-  getImage(@Param('id') id: number): Promise<ImageEntity> {
-    return this.imagesService.getImage(id);
+  getImage(@Param('id') id: number): Promise<GalleryEntity> {
+    return this.galleryService.getImage(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.Admin)
   @Delete(':id')
   removeImage(@Param('id') id: number): Promise<string> {
-    return this.imagesService.removeImage(id);
+    return this.galleryService.removeImage(id);
   }
 }

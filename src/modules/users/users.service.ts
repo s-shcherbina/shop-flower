@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hash } from 'bcrypt';
 import { Repository } from 'typeorm';
-import { CreateUserDTO } from './dto';
+import { CreateUserDTO, UpdateSuperUserDTO } from './dto';
 import { UserEntity } from './entities/user.entity';
 
 @Injectable()
@@ -13,44 +13,36 @@ export class UsersService {
   ) {}
 
   async hashPassword(password: string): Promise<string> {
-    return hash(password, 5);
+    return await hash(password, 5);
   }
 
   async findUserByPhone(phone: string): Promise<UserEntity> {
-    return this.userRepository.findOneBy({ phone });
+    return await this.userRepository.findOneBy({ phone });
   }
 
   async findUserById(id: number): Promise<UserEntity> {
-    return this.userRepository.findOneBy({ id });
+    return await this.userRepository.findOneBy({ id });
   }
 
   async findSuperUserByEmail(email: string): Promise<UserEntity> {
-    return this.userRepository.findOneBy({ email });
-  }
-
-  async checkUserByPhone(phone: string): Promise<void> {
-    const user = await this.findUserByPhone(phone);
-    if (user)
-      throw new BadRequestException(
-        `${phone} закріплений за іншим користувачем!`,
-      );
-  }
-
-  async checkSuperUserByEmail(email: string): Promise<void> {
-    const user = await this.findSuperUserByEmail(email);
-    if (user)
-      throw new BadRequestException(
-        `${email} закріплений за іншим користувачем!`,
-      );
+    return await this.userRepository.findOneBy({ email });
   }
 
   async createUser(dto: CreateUserDTO): Promise<UserEntity> {
-    return this.userRepository.save({ ...dto });
+    return await this.userRepository.save({ ...dto });
   }
 
-  async updateRole(id: number, role: string): Promise<UserEntity> {
+  async updateRole(id: number, role: string) {
     await this.userRepository.update({ id }, { role });
-    return this.userRepository.findOneBy({ id });
+  }
+
+  async checkUserByPhoneAndId(id: number, phone: string) {
+    const user = await this.findUserByPhone(phone);
+    if (user && user.id !== id)
+      if (user)
+        throw new BadRequestException(
+          `${phone} закріплений за іншим користувачем!`,
+        );
   }
 
   async updateToSuperUser(
@@ -58,9 +50,25 @@ export class UsersService {
     role: string,
     email: string,
     password: string,
-  ): Promise<UserEntity> {
+  ) {
     await this.userRepository.update({ id }, { role, email, password });
-    return this.userRepository.findOneBy({ id });
+  }
+
+  async updateUser(id: number, dto: CreateUserDTO): Promise<string> {
+    await this.checkUserByPhoneAndId(id, dto.phone);
+    await this.userRepository.update({ id }, { ...dto });
+    return 'Оновлено';
+  }
+
+  async updateSuperUser(id: number, dto: UpdateSuperUserDTO): Promise<string> {
+    await this.checkUserByPhoneAndId(id, dto.phone);
+    const user = await this.findSuperUserByEmail(dto.email);
+    if (user && user.id !== id)
+      throw new BadRequestException(
+        `${dto.email} закріплений за іншим користувачем!`,
+      );
+    await this.userRepository.update({ id }, { ...dto });
+    return 'Оновлено';
   }
 
   async removeUser(id: number): Promise<string> {
@@ -69,7 +77,6 @@ export class UsersService {
   }
 
   async getAllUsers() {
-    const users = await this.userRepository.find();
-    return users;
+    return await this.userRepository.find();
   }
 }

@@ -14,32 +14,37 @@ import { LoginSuperUserDTO, LoginUserDTO } from './dto';
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
-    private readonly tokenService: TokensService,
+    private readonly tokensService: TokensService,
   ) {}
 
-  async createResponse(
-    id: number,
-    role: string,
-    phone: string,
-  ): Promise<AuthResponse> {
-    const userData = { id, role, phone };
-    const tokens = this.tokenService.generateJwtTokens(userData);
-    await this.tokenService.saveToken(tokens.refreshToken, id);
+  async createResponse(id: number, role: string): Promise<AuthResponse> {
+    const userData = { id, role };
+    const tokens = this.tokensService.generateJwtTokens(userData);
+    await this.tokensService.saveToken(tokens.refreshToken, id);
+    console.log(userData, tokens);
     return { userData, ...tokens };
   }
 
   async registerUser(dto: CreateUserDTO): Promise<AuthResponse> {
-    await this.usersService.checkUserByPhone(dto.phone);
+    const existUser = await this.usersService.findUserByPhone(dto.phone);
+    if (existUser)
+      throw new BadRequestException(
+        `${dto.phone} закріплений за іншим користувачем!`,
+      );
     const user = await this.usersService.createUser(dto);
-    return this.createResponse(user.id, user.role, user.phone);
+    return this.createResponse(user.id, user.role);
   }
 
-  async registerPrivelegUser(dto: CreateSuperUserDTO): Promise<AuthResponse> {
+  async registerPrivelegUser(
+    id: number,
+    dto: CreateSuperUserDTO,
+  ): Promise<AuthResponse> {
     let role = 'SUPER_USER';
-    const user = await this.usersService.findUserById(dto.userId);
-    if (!user) throw new BadRequestException(`Відсутні попередні данні`);
-    await this.usersService.checkSuperUserByEmail(dto.email);
-
+    const user = await this.usersService.findSuperUserByEmail(dto.email);
+    if (user)
+      throw new BadRequestException(
+        `${dto.email} закріплений за іншим користувачем!`,
+      );
     if (dto.invite) {
       if (dto.invite === process.env.ADMIN_INVITE) {
         role = 'ADMIN';
@@ -52,12 +57,12 @@ export class AuthService {
 
     dto.password = await this.usersService.hashPassword(dto.password);
     await this.usersService.updateToSuperUser(
-      user.id,
+      id,
       role,
       dto.email,
       dto.password,
     );
-    return this.createResponse(user.id, role, user.phone);
+    return this.createResponse(id, role);
   }
 
   async loginUser(dto: LoginUserDTO): Promise<AuthResponse> {
@@ -70,7 +75,7 @@ export class AuthService {
       existUser.role = 'USER ' + existUser.role.slice(0, 1);
       await this.usersService.updateRole(existUser.id, existUser.role);
     }
-    return this.createResponse(existUser.id, existUser.role, existUser.phone);
+    return this.createResponse(existUser.id, existUser.role);
   }
 
   async loginPrivilegUser(dto: LoginSuperUserDTO): Promise<AuthResponse> {
@@ -87,23 +92,23 @@ export class AuthService {
 
     await this.usersService.updateRole(existUser.id, existUser.role);
 
-    return this.createResponse(existUser.id, existUser.role, existUser.phone);
+    return this.createResponse(existUser.id, existUser.role);
   }
 
   async logout(refreshToken: string): Promise<string> {
-    return this.tokenService.removeToken(refreshToken);
+    return this.tokensService.removeToken(refreshToken);
   }
 
   async refresh(refreshToken: string): Promise<AuthResponse> {
     try {
       if (!refreshToken) throw new UnauthorizedException(`Не авторизований`);
 
-      const userData = this.tokenService.validateRefreshToken(refreshToken);
-      const tokenFromDb = await this.tokenService.findToken(refreshToken);
+      const userData = this.tokensService.validateRefreshToken(refreshToken);
+      const tokenFromDb = await this.tokensService.findToken(refreshToken);
       if (!userData || !tokenFromDb)
         throw new UnauthorizedException(`Не авторизований`);
 
-      return this.createResponse(userData.id, userData.role, userData.phone);
+      return this.createResponse(userData.id, userData.role);
     } catch (e) {
       throw new UnauthorizedException(`Не авторизований`);
     }

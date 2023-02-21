@@ -11,8 +11,8 @@ export class TokensService {
   constructor(
     @InjectRepository(TokenEntity)
     private readonly tokenRepository: Repository<TokenEntity>,
-    private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
   ) {}
 
   generateJwtTokens(userData: PayloadToken) {
@@ -35,27 +35,28 @@ export class TokensService {
   }
 
   async findToken(refreshToken: string): Promise<TokenEntity> {
-    return this.tokenRepository.findOneBy({ refreshToken });
+    return await this.tokenRepository.findOneBy({ refreshToken });
   }
 
-  async saveToken(refreshToken: string, userId: number): Promise<void> {
-    // const token = await this.tokenRepository.findOne({
-    //   where: { user },
-    //   relations: { user: true },
-    // }); - not working?!
-    const user = await this.usersService.findUserById(userId);
-    const token = await this.tokenRepository
+  async getTokenByUserId(userId: number): Promise<TokenEntity> {
+    return await this.tokenRepository
       .createQueryBuilder('token')
       .where('token.userId = :id', { id: userId })
       .leftJoinAndSelect('token.user', 'user')
       .getOne();
-    // console.log(token);
+  }
+
+  async saveToken(refreshToken: string, userId: number) {
+    const user = await this.usersService.findUserById(userId);
+    const token = await this.getTokenByUserId(userId);
+    console.log(token);
     token
       ? await this.tokenRepository.update({ id: token.id }, { refreshToken })
       : await this.tokenRepository.save({
           refreshToken,
           user,
         });
+    console.log(token);
   }
 
   async removeToken(refreshToken: string): Promise<string> {
